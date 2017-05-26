@@ -1,8 +1,9 @@
 // ************************************************************************
-// 修改日期：2017-05-25
+// 修改日期：2017-05-26
 // ************************************************************************
-// S3X_Client
+// S3X_Client：與 Proxy 連線
 // ************************************************************************
+// 零件清單：ESP8266、LED、R220電阻
 // ************************************************************************
 // http://arduino.tw/allarticlesindex/2009-09-06-18-37-08/169-arduinohd.html
 #include <EEPROM.h> 
@@ -128,7 +129,7 @@ void setup() {
   //-------------------------------------------------------
   ShowMessage(Message_Info);
   //-------------------------------------------------------
-  mySysMode.Live();                                       // 先執行一次更新時間紀錄
+  mySysMode.Living();                                     // 先執行一次更新時間紀錄
   //-------------------------------------------------------
   Timer_SysCheck.every(SysCheck_Interval,SystemCheck);    // 計時器：系統檢查
                                                           // 計時器：S3X Proxy 連線
@@ -142,7 +143,7 @@ void loop() {
   //-------------------------------------------------------
   ArduinoOTA.handle();
   //-------------------------------------------------------
-  WebServer.handleClient();                               // Web Server 運行
+  WebServer_Run();                                        // Web Server 執行
   //-------------------------------------------------------
   Timer_S3X_Proxy_Link.update();                          // 計時器：JSON Link 資料接收
   //-------------------------------------------------------
@@ -150,6 +151,15 @@ void loop() {
   //-------------------------------------------------------
   Button_Check();                                         // 按鍵檢查 
   //-------------------------------------------------------
+}
+// ************************************************************************
+// Web Server 運行
+void WebServer_Run() {
+  unsigned long KeepTime = micros();
+  WebServer.handleClient();
+                                                          // 沒有 Client 要求上傳資料時，其時間差大都在 100 之內
+  if((micros()-KeepTime) > 200) mySysMode.Living();       // 活動中
+  //Serial.println(micros()-KeepTime);
 }
 // ************************************************************************
 void S3X_HttpLink_Init() {
@@ -184,7 +194,7 @@ void Button_Check() {
   //-------------------------------------------------------
   if (Button_ForcedHeating.update() == false)  return;    // 按鍵狀態沒有變化
   //-------------------------------------------------------
-  mySysMode.Live();
+  mySysMode.Living();                                     // 活動中
   if (Button_ForcedHeating.fell()) {                      // 按鍵是否按下後放開
     if (mySysMode.Mode()!=SysMode_Idle)                   // 不處於閒置模式
       Send_ForcedHeating = true;
@@ -266,7 +276,7 @@ void SystemCheck() {
     S3X_HttpLink_Init();
   //-------------------------------------------------------
                                                           // 有接收到感應時 SysMode 活動
-  if (digitalRead(Pin_WakeUp_Sensor)==HIGH) mySysMode.Live();
+  if (digitalRead(Pin_WakeUp_Sensor)==HIGH) mySysMode.Living();
   //-------------------------------------------------------
   switch (mySysMode.Check_WakeUp_Sleep()) {               // 檢查 SysMode 模式
     case  SysMode_doWakeUp  :                             // 喚醒...
@@ -324,6 +334,11 @@ void OTA_Init() {
 // ************************************************************************
 // S3X Proxy 連線
 void S3X_Proxy_Link() {
+  //-------------------------------------------------------
+  if (mySysMode.Mode()==SysMode_Idle) {                     // 閒置模式時不連線更新
+    Link_Blink.Active();
+    return;
+  }
   //-------------------------------------------------------
   //if (WiFi.status() != WL_CONNECTED) return;              // 網路未連線？
   //-------------------------------------------------------
