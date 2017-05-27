@@ -99,9 +99,11 @@ ESP8266WebServer WebServer(80);                           // Web Server
 //-------------------------------------------------------
 char mDNS_Name[8+1] = "S3X-XXXX";                         // mDNS 名稱
 //-------------------------------------------------------
-String S3X_Info_HttpLink="";
-String S3X_ForcedHeating_HttpLink="";
-String S3X_SetTemperature_HttpLink="";
+const char* Proxy_HostName = "S3X-Proxy";                 // S3X Proxy 的 HostName
+//-------------------------------------------------------
+String S3X_Info_HttpLink="";                              // S3X Info 連結
+String S3X_ForcedHeating_HttpLink="";                     // S3X 強制加熱 連結
+String S3X_SetTemperature_HttpLink="";                    // S3X 水溫設定 連結
 // ************************************************************************
 void setup() {
   Serial.begin(115200);
@@ -121,8 +123,7 @@ void setup() {
   //-------------------------------------------------------
   WiFi_init();                                            // WiFi 設置
   //-------------------------------------------------------
-  ShowMessage(Message_S3X_Proxy);
-  S3X_HttpLink_Init();
+  S3X_HttpLink_Init(true);
   //-------------------------------------------------------
   OTA_Init();                                             // OTA 設置
   //-------------------------------------------------------
@@ -163,23 +164,28 @@ void WebServer_Run() {
   //Serial.println(micros()-KeepTime);
 }
 // ************************************************************************
-void S3X_HttpLink_Init() {
+// S3X 連結 設置
+void S3X_HttpLink_Init(boolean MSG) {
+  //-------------------------------------------------------
+  if (MSG==true) ShowMessage(Message_S3X_Proxy);
   //-------------------------------------------------------
   if (WiFi.status() != WL_CONNECTED) return;              // 網路未連線？
   //-------------------------------------------------------
-  String IP_Str = mDNS_IP_String("S3X-Proxy");
+  S3X_Info_HttpLink = "";
+  S3X_ForcedHeating_HttpLink = "";
+  S3X_SetTemperature_HttpLink = "";
+  //-------------------------------------------------------
+  String IP_Str = mDNS_IP_String(Proxy_HostName);
   if (IP_Str != "") {
     S3X_Info_HttpLink = "http://" + IP_Str + "/Info";
     S3X_ForcedHeating_HttpLink = "http://" + IP_Str + "/ForcedHeating";
     S3X_SetTemperature_HttpLink = "http://" + IP_Str + "/SetTem?SetTemperature=";
-    LCD_Print(14,0,"OK");
-    Beep(500,1);
-    LCD_Print(1,1,IP_Str);
-    delay(5000);
-  } else {
-    S3X_Info_HttpLink = "";
-    S3X_ForcedHeating_HttpLink = "";
-    S3X_SetTemperature_HttpLink = "";
+    if (MSG==true) {
+      LCD_Print(14,0,"OK");
+      Beep(500,1);
+      LCD_Print(1,1,IP_Str);
+      delay(5000);  
+    }
   }
   //-------------------------------------------------------
 }
@@ -242,8 +248,8 @@ void ShowMessage(byte index) {
   switch (index) {
     case Message_Boot   :
       LCD_Print(0,0,(String)">>> " + mDNS_Name + " <<<");
-      for (byte CX=0; CX<8; CX++)
-        LCD_Char(CX*2,1,CX);
+      for (byte CX=0; CX<16; CX++)
+        LCD_Char(CX,1,CX%2);
       break;
     case Message_WiFi :
       LCD_Print(0,0,(String)"SSID:" + myConfig.WiFi_SSID);
@@ -272,7 +278,8 @@ void SystemCheck() {
   }
   //-------------------------------------------------------
   if (S3X_Info_HttpLink=="" && WiFi.status()==WL_CONNECTED)
-    S3X_HttpLink_Init();
+    LCD_Char(12,1,0);
+    S3X_HttpLink_Init(false);
   //-------------------------------------------------------
                                                           // 有接收到感應時 SysMode 活動
   if (digitalRead(Pin_WakeUp_Sensor)==HIGH) mySysMode.Living();
@@ -299,7 +306,7 @@ void SystemCheck() {
   }
   //-------------------------------------------------------
   if (Link_Blink.isActive()) {                            // 閃爍動作中？
-    LCD_Char(12,1,Link_Blink.GetLowHigh()?' ':3);
+    LCD_Char(12,1,Link_Blink.GetLowHigh()?' ':1);
     digitalWrite(Pin_WiFi_LED,!Link_Blink.GetLowHigh());
     Link_Blink.Update();
   }
@@ -635,6 +642,7 @@ void SaveConfig() {
 // 初始化：16x2 LCD 
 void LCD_Init() {
   //-------------------------------------------------------
+  /*
   uint8_t bell[8]  = {0x4, 0xe, 0xe, 0xe, 0x1f, 0x0, 0x4};
   uint8_t note[8]  = {0x2, 0x3, 0x2, 0xe, 0x1e, 0xc, 0x0};
   uint8_t clock[8] = {0x0, 0xe, 0x15, 0x17, 0x11, 0xe, 0x0};
@@ -643,20 +651,27 @@ void LCD_Init() {
   uint8_t check[8] = {0x0, 0x1 ,0x3, 0x16, 0x1c, 0x8, 0x0};
   uint8_t cross[8] = {0x0, 0x1b, 0xe, 0x4, 0xe, 0x1b, 0x0};
   uint8_t retarrow[8] = {  0x1, 0x1, 0x5, 0x9, 0x1f, 0x8, 0x4};
+  */
   //-------------------------------------------------------
   //LCD_16x2.begin(0,2);                            // In ESP8266, SDA=0, SCL=2 
   //LCD_16x2.begin(4,5);                            // In ESP8266, SDA=4, SCL=5 
   LCD_16x2.begin();                             // 使用 GPIO 4、5
   LCD_16x2.backlight();                           // 16x2 LCD：開啟背光
   //-------------------------------------------------------
-  LCD_16x2.createChar(0, bell);
-  LCD_16x2.createChar(1, note);
-  LCD_16x2.createChar(2, clock);
-  LCD_16x2.createChar(3, heart);
-  LCD_16x2.createChar(4, duck);
-  LCD_16x2.createChar(5, check);
-  LCD_16x2.createChar(6, cross);
-  LCD_16x2.createChar(7, retarrow);
+  byte magnifier[8] = {                           // 放大鏡
+  0b01110,
+  0b10001,
+  0b10101,
+  0b10001,
+  0b01110,
+  0b00100,
+  0b00100,
+  0b00000
+  };
+  uint8_t heart[8] = {0x0, 0xa, 0x1f, 0x1f, 0xe, 0x4, 0x0};
+  //-------------------------------------------------------
+  LCD_16x2.createChar(0, magnifier);
+  LCD_16x2.createChar(1, heart);
   //-------------------------------------------------------
 }
 // ************************************************************************
