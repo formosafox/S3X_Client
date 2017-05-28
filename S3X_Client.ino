@@ -3,7 +3,7 @@
 // ************************************************************************
 // S3X_Client：與 Proxy 連線
 // ************************************************************************
-// 零件清單：ESP8266、LED、R220電阻
+// 零件清單：D1-mini、LED、電阻、有源蜂鳴器、電晶體-C1815、RCWL-0516(微波雷達感應開關模塊)
 // ************************************************************************
 // http://arduino.tw/allarticlesindex/2009-09-06-18-37-08/169-arduinohd.html
 #include <EEPROM.h> 
@@ -114,8 +114,12 @@ void setup() {
   IO_Init();                                              // IO 設置
   LCD_Init();                                             // LCD 設置
   //-------------------------------------------------------
-  LED_Blink(Pin_WiFi_LED,500,5);
-  LED_Blink(Pin_WiFi_LED,100,25);
+  //LED_Blink(Pin_WiFi_LED,500,5);
+  //LED_Blink(Pin_WiFi_LED,100,25);
+  byte BD;
+  BD=0b00000001;while (BD!=0b00000000){LED_74HC595(BD);delay(150);BD=BD<<1;}
+  BD=0b10000000;while (BD!=0b00000000){LED_74HC595(BD);delay(150);BD=BD>>1;}
+  for (BD=0; BD<3; BD++){LED_74HC595(0xFF);delay(500);LED_74HC595(0x00);delay(500);}
   //-------------------------------------------------------
   LoadConfig();                                           // 載入設定
   //-------------------------------------------------------
@@ -251,8 +255,7 @@ void ShowMessage(byte index) {
   switch (index) {
     case Message_Boot   :
       LCD_Print(0,0,(String)">>> " + mDNS_Name + " <<<");
-      for (byte CX=0; CX<16; CX++)
-        LCD_Char(CX,1,CX%2);
+      for (byte CX=0; CX<16; CX++) LCD_Char(CX,1,CX%2);
       break;
     case Message_WiFi :
       LCD_Print(0,0,(String)"SSID:" + myConfig.WiFi_SSID);
