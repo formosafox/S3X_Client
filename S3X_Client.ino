@@ -1,5 +1,5 @@
 // ************************************************************************
-// 修改日期：2017-05-29
+// 修改日期：2017-10-15
 // ************************************************************************
 // S3X_Client：與 Proxy 連線
 // ************************************************************************
@@ -265,9 +265,10 @@ void ShowMessage(byte index) {
       LCD_Print(0,1,">");
       break;
     case Message_Info :
-      LCD_Print(0,0,"TEM:--[--------]");
-      LCD_Print(0,1,"SET:--[    ]:0");
-      LCD_Print(7,1,(char *)(mDNS_Name+4));
+      LCD_Print(0,0,"T:-- [--------]:");
+      LCD_Print(0,1,"S:-- [        ]");
+      //LCD_Print(5,1,(char *)(mDNS_Name+4));
+      LCD_Print(6,1,mDNS_Name);
       break;
     case Message_S3X_Proxy :
       LCD_Print(0,0,"S3X Proxy ... ");
@@ -288,7 +289,7 @@ void SystemCheck() {
   //-------------------------------------------------------
   if (S3X_Info_HttpLink=="" && WiFi.status()==WL_CONNECTED) {
     S3X_HttpLink_Init(false);
-    LCD_Char(12,1,0);
+    LCD_Char(15,0,0);
   }
   //-------------------------------------------------------
                                                           // 有接收到感應時 SysMode 活動
@@ -316,7 +317,7 @@ void SystemCheck() {
   }
   //-------------------------------------------------------
   if (Link_Blink.isActive()) {                            // 閃爍動作中？
-    LCD_Char(12,1,Link_Blink.GetLowHigh()?' ':1);
+    LCD_Char(15,0,Link_Blink.GetLowHigh()?' ':1);
     digitalWrite(Pin_WiFi_LED,!Link_Blink.GetLowHigh());
     Link_Blink.Update();
   }
@@ -775,16 +776,18 @@ void DisplayInfo() {
     str[CX]=(bitRead(BD,7-CX)==0?'-':SC[7-CX]);   // 高位元->低位元排列狀態字串
   }
   str[8]=0x00;
-  LCD_Print(7,0,str); 
+  LCD_Print(6,0,str); 
   //-------------------------------------------------------
   BD=myS3X_Info.NowTemperature;                   // 取得目前水溫
-  LCD_Print(4,0,Temperature_String(BD));
+  LCD_Print(2,0,Temperature_String(BD));
   //-------------------------------------------------------
   BD=myS3X_Info.SetTemperature;                   // 取得水溫設定
-  LCD_Print(4,1,Temperature_String(BD));
+  LCD_Print(2,1,Temperature_String(BD));
   //-------------------------------------------------------
-  sprintf(str, "%-3lu",myS3X_Info.PacketErrorCount%1000);
-  LCD_Print(13,1,str);
+  //sprintf(str, "%-2lu",myS3X_Info.PacketErrorCount%100);
+  if (myS3X_Info.PacketErrorCount>0)              // 封包錯誤資訊
+        LCD_Char(15,1,'0'+myS3X_Info.PacketErrorCount%10);
+  else  LCD_Char(15,1,' ');
   //-------------------------------------------------------
   //LCD_Print(7,1,myS3X_Info.SlaveName);
   //-------------------------------------------------------
